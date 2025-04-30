@@ -4,79 +4,35 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
-let renderer;
-function load3D() {
+let renderer, camera, scene, controls, stats, pmremGenerator, envMap;
+const Sizes = { Width: window.innerWidth, Height: window.innerHeight };
+const targetObjects = [];
+const Animation1 = [];
+let currentIntersects = [];
+let HoveredObject = null;
+let GlobeDetails = { object: null, speed: 0.08 };
+let ChairDetails = { Speed: 0.002, ToRight: true, MaxTimes: 500, Time: 0, Hover: false };
+let textureKey, links, VideoTexture, audio, videoBox;
+let RightCabinDoor, LeftCabinDoor, Blade, Hours, Mins, Secs, ChairTop,pointer;
+function initializeScene() {
   const container = document.getElementById("container");
-  const Sizes = { Width: window.innerWidth, Height: window.innerHeight };
-
-  const camera = new THREE.PerspectiveCamera(
-    45,
-    Sizes.Width / Sizes.Height,
-    0.1,
-    100
-  );
-  const audio = document.createElement("audio");
-  const videoBox = Object.assign(document.createElement("video"), {
-    src: "Textures/Video.mp4",
-    loop: true,
-    muted: true,
-    autoplay: true,
-    playsInline: true,
-  });
-  const manager = new THREE.LoadingManager();
-  // manager.onStart = (url, itemsLoaded, itemsTotal) => console.log(`Started loading: ${url} (${itemsLoaded}/${itemsTotal})`);
-  manager.onLoad = () => {
-    console.log("Loading Complete");
-    audio.src = "assets/Background_Music.mp3";
-    audio.loop = true;
-  };
-  function Unmute(object) {
-    if (audio.paused) {
-      object.children[0].name = "volume-high-outline";
-      videoBox.play();
-      audio.play().catch((error) => {
-        console.error("Playback failed:", error);
-      });
-    } else {
-      object.children[0].name = "volume-mute-outline";
-      videoBox.pause();
-      audio.pause();
-    }
-  }
-  function ActivateOfflines() {
-    videoBox.play();
-    audio.play().catch((error) => {
-      console.error("Playback failed:", error);
-    });
-    openAnimation();
-  }
-  window.Unmute = Unmute;
-  window.ActivateOfflines = ActivateOfflines;
-  window.openAboutMe=openAboutMe;
-  // manager.onProgress = (url, itemsLoaded, itemsTotal) => console.log(`Loading: ${url} (${itemsLoaded}/${itemsTotal})`);
-  // manager.onError = (url) => console.log(`Error loading ${url}`);
-  const textureLoader = new THREE.TextureLoader(manager);
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x7692e7);
+  container.appendChild(renderer.domElement);
+}
+function initializeCamera() {
+  camera = new THREE.PerspectiveCamera(45, Sizes.Width / Sizes.Height, 0.1, 100);
+  camera.position.set(5.6, 4, 5.6);
+}
+function initializeRenderer() {
   if (!renderer) {
     renderer = new THREE.WebGLRenderer({ antialias: true });
   }
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(Sizes.Width, Sizes.Height);
-  container.appendChild(renderer.domElement);
-  
-
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x7692e7);
-
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  let envMap;
-
-  const envScene = new RoomEnvironment();
-  const envTex = pmremGenerator.fromScene(envScene, 0.04);
-  envMap = envTex.texture;
-
-  camera.position.set(5.6, 4, 5.6);
-
-  const controls = new OrbitControls(camera, renderer.domElement);
+}
+function initializeControls() {
+  controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0.3, 0.5, 0.3);
   controls.enableDamping = true;
   controls.minPolarAngle = 0;
@@ -87,15 +43,41 @@ function load3D() {
   controls.maxDistance = 20;
   controls.zoomSpeed = 2;
   controls.update();
+}
+function initializeEnvironment() {
+  pmremGenerator = new THREE.PMREMGenerator(renderer);
+  const envScene = new RoomEnvironment();
+  const envTex = pmremGenerator.fromScene(envScene, 0.04);
+  envMap = envTex.texture;
+  scene.environment = envMap;
+}
 
-  const dracoLoader = new DRACOLoader().setDecoderPath("jsm/libs/draco/gltf/");
-  const loader = new GLTFLoader(manager).setDRACOLoader(dracoLoader);
+function initializeMedia() {
+  audio = document.createElement("audio");
+  videoBox = Object.assign(document.createElement("video"), {
+    src: "Textures/Video.mp4",
+    loop: true,
+    muted: true, 
+    autoplay: false,
+    playsInline: true,
+  });
 
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
-  const stats = new Stats();
+  // videoBox.play().catch((error) => {
+  //   console.warn("Autoplay failed. Waiting for user interaction.");
+  // });
 
-  const textureKey = {
+  // document.addEventListener("click", () => {
+  //   if (videoBox.paused) {
+  //     videoBox.play().catch((error) => {
+  //       console.error("Playback failed:", error);
+  //     });
+  //   }
+  // });
+
+  VideoTexture = new THREE.VideoTexture(videoBox);
+}
+function initializeLoaders() {
+  textureKey = {
     First: "Textures/First-Bed&Chair-Texture.webp",
     Second: "Textures/Second-WallAssets-Texture.webp",
     Third: "Textures/Third-Table-Texture.webp",
@@ -103,35 +85,165 @@ function load3D() {
     Earth: "Textures/WorldMap.webp",
   };
 
-  const links = {
+  links = {
     GitHub: "https://github.com/mrabhin03",
     Insta: "https://www.instagram.com/mr_abhin._",
     Linkedin: "https://www.linkedin.com/in/abhin-m-632954256/",
   };
+}
 
-  const VideoTexture = new THREE.VideoTexture(videoBox);
 
-  let Blade, Hours, Mins, Secs, ChairTop;
-  const targetObjects = [],
-    Animation1 = [];
-  let currentIntersects = [],
-    HoveredObject = null;
+function initializeEventListeners() {
+  ["mousemove", "touchstart"].forEach((evt) =>
+    window.addEventListener(evt, handlePointerMove, { passive: false })
+  );
 
-  const GlobeDetails = {
-    object: null,
-    speed: 0.08,
+  ["click", "touchend"].forEach((evt) =>
+    window.addEventListener(evt, handlePointerClick, { passive: false })
+  );
+
+  renderer.domElement.addEventListener("webglcontextlost", handleContextLost, false);
+}
+function handlePointerMove(e) {
+  const x = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
+  const y = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
+  pointer.x = (x / window.innerWidth) * 2 - 1;
+  pointer.y = -(y / window.innerHeight) * 2 + 1;
+}
+
+function handlePointerClick(e) {
+  if (e.target.closest("#container")) {
+    e.preventDefault();
+
+    if (currentIntersects.length > 0) {
+      const obj = currentIntersects[0].object;
+      if (obj.name.includes("AboutImage")) {
+        openAboutMe();
+        return;
+      }
+      for (const [key, url] of Object.entries(links)) {
+        if (obj.name.includes(key)) {
+          const win = window.open();
+          win.opener = null;
+          win.location = url;
+          break;
+        }
+      }
+    }
+  }
+}
+
+function handleContextLost(event) {
+  event.preventDefault();
+  clearScene();
+  window.location.reload();
+}
+
+function handleResize() {
+  Sizes.Width = window.innerWidth;
+  Sizes.Height = window.innerHeight;
+  camera.aspect = Sizes.Width / Sizes.Height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(Sizes.Width, Sizes.Height);
+  windowReSizer();
+}
+
+function clearScene() {
+  if (renderer) {
+    renderer.dispose();
+    renderer.forceContextLoss();
+    renderer.domElement = null;
+  }
+
+  if (scene) {
+    scene.traverse((object) => {
+      if (!object.isMesh) return;
+      object.geometry.dispose();
+      if (object.material.isMaterial) {
+        cleanMaterial(object.material);
+      } else {
+        for (const material of object.material) cleanMaterial(material);
+      }
+    });
+  }
+}
+
+function cleanMaterial(material) {
+  material.dispose();
+  for (const key in material) {
+    const value = material[key];
+    if (value && typeof value === "object" && "minFilter" in value) {
+      value.dispose();
+    }
+  }
+}
+
+
+function windowReSizer() {
+  if (window.innerWidth > 850) {
+    controls.maxDistance = 10;
+    const offset = new THREE.Vector3();
+    offset.copy(camera.position).sub(controls.target).setLength(9);
+    camera.position.copy(controls.target).add(offset);
+    controls.update();
+  } else if (window.innerWidth > 450) {
+    controls.maxDistance = 15;
+    const offset = new THREE.Vector3();
+    offset.copy(camera.position).sub(controls.target).setLength(15);
+    camera.position.copy(controls.target).add(offset);
+    controls.update();
+  } else {
+    controls.maxDistance = 20;
+    const offset = new THREE.Vector3();
+    offset.copy(camera.position).sub(controls.target).setLength(15);
+    camera.position.copy(controls.target).add(offset);
+    controls.update();
+  }
+}
+
+
+function load3D() {
+  initializeCamera();
+  initializeRenderer();
+  initializeScene();
+  initializeControls();
+  initializeEnvironment();
+  initializeMedia();
+  initializeLoaders();
+  initializeEventListeners();
+  pointer = new THREE.Vector2();
+  const Sizes = { Width: window.innerWidth, Height: window.innerHeight };
+
+  window.addEventListener("resize", handleResize);
+  window.addEventListener("beforeunload", clearScene);
+
+  const manager = new THREE.LoadingManager();
+  // manager.onStart = (url, itemsLoaded, itemsTotal) => console.log(`Started loading: ${url} (${itemsLoaded}/${itemsTotal})`);
+  manager.onLoad = () => {
+    console.log("Loading Complete");
+    audio.src = "assets/Background_Music.mp3";
+    audio.loop = true;
   };
-  const ChairDetails = {
-    Speed: 0.002,
-    ToRight: true,
-    MaxTimes: 500,
-    Time: 0,
-    Hover: false,
-  };
-let RightCabinDoor,LeftCabinDoor;
+  
+  // manager.onProgress = (url, itemsLoaded, itemsTotal) => console.log(`Loading: ${url} (${itemsLoaded}/${itemsTotal})`);
+  // manager.onError = (url) => console.log(`Error loading ${url}`);
+  const textureLoader = new THREE.TextureLoader(manager);
+  
+
+
+
+
+
+  const dracoLoader = new DRACOLoader().setDecoderPath("jsm/libs/draco/gltf/");
+  const loader = new GLTFLoader(manager).setDRACOLoader(dracoLoader);
+
+  const raycaster = new THREE.Raycaster();
+  const stats = new Stats();
+ 
+
 
   loader.load(
-    "assets/Room-v1.glb",
+    "assets/TheRoom.glb",
     (gltf) => {
       const model = gltf.scene;
       model.position.set(0, -1, 0);
@@ -206,7 +318,6 @@ let RightCabinDoor,LeftCabinDoor;
         if (child.name.includes("Clock-Min")) Mins = child;
         if (child.name.includes("Clock-Sec")) Secs = child;
       });
-      scene.environment = envMap;
       setTimeout(() => {
         renderer.compile(scene, camera);
         renderer.setAnimationLoop(animate);
@@ -222,166 +333,10 @@ let RightCabinDoor,LeftCabinDoor;
     obj.userData.MainPosition = obj.position.clone();
   }
 
-  function openAnimation() {
-    let delay1 = 0.3;
-    let delay2 = 0.2;
-    Animation1.forEach((child) => {
-      if (child.name.includes("Animation1")) {
-        gsap.to(child.scale, {
-          x: 1,
-          y: 1,
-          z: 1,
-          duration: 2,
-          ease: "bounce.out",
-          delay: (delay1 += 0.1),
-        });
-      } else if (child.name.includes("Animation2")) {
-        gsap.to(child.position, {
-          x: child.userData.MainPosition.x,
-          duration: 2,
-          ease: "power3.out",
-          delay: 0.4,
-        });
-        gsap.to(child.rotation, {
-          y: child.userData.MainRotation.y,
-          duration: 2,
-          ease: "power3.out",
-          delay: 0.4,
-        });
-      } else if (
-        child.name.includes("Hover") ||
-        child.name.includes("Animation3")
-      ) {
-        gsap.to(child.scale, {
-          x: 1,
-          y: 1,
-          z: 1,
-          duration: 2,
-          ease: "bounce.out",
-          delay: (delay2 += 0.2),
-        });
-      }
-    });
-    setTimeout(()=>{
-      removeHovers()
-    },2000)
-  }
-
-  ["mousemove", "touchstart"].forEach((evt) =>
-    window.addEventListener(
-      evt,
-      (e) => {
-        const x = evt === "touchstart" ? e.touches[0].clientX : e.clientX;
-        const y = evt === "touchstart" ? e.touches[0].clientY : e.clientY;
-        pointer.x = (x / window.innerWidth) * 2 - 1;
-        pointer.y = -(y / window.innerHeight) * 2 + 1;
-      },
-      { passive: false }
-    )
-  );
-
-  ["click", "touchend"].forEach((evt) =>
-    window.addEventListener(
-      evt,
-      (e) => {
-        if (e.target.closest("#container")) {
-          e.preventDefault();
-
-          if (currentIntersects.length > 0) {
-            const obj = currentIntersects[0].object;
-            if(obj.name.includes("AboutImage")){
-              openAboutMe();
-              return
-            }
-            for (const [key, url] of Object.entries(links)) {
-              if (obj.name.includes(key)) {
-                const win = window.open();
-                win.opener = null;
-                win.location = url;
-                break;
-              }
-            }
-          }
-        }
-      },
-      { passive: false }
-    )
-  );
-
-  function openAboutMe(){
-    const iframe=document.getElementById("RepoIframe");
-    const UserBox=document.getElementById("UserMain");
-    if(UserBox.classList.contains("open")){
-      UserBox.classList.remove("open");
-      setTimeout(()=>{
-        iframe.src='';
-      },500)
-      removeHovers()
-    }else{
-      UserBox.classList.add("open");
-      iframe.src='https://mrabhin03.github.io/Repositories/';
-    }
-  }
   
-  function removeHovers(){
-    for (const sheet of document.styleSheets) {
-      try {
-        const rules = sheet.cssRules || sheet.rules;
-        if (!rules) continue;
-    
-        for (let i = rules.length - 1; i >= 0; i--) {
-          const rule = rules[i];
-          if (rule.selectorText && rule.selectorText.includes(':hover')) {
-            sheet.deleteRule(i);
-          }
-        }
-      } catch (e) {
-        // Some stylesheets (e.g., cross-origin) will throw errors — safely ignore them
-      }
-    }
-  }
 
-  window.addEventListener("resize", () => {
-    Sizes.Width = window.innerWidth;
-    Sizes.Height = window.innerHeight;
-    camera.aspect = Sizes.Width / Sizes.Height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(Sizes.Width, Sizes.Height);
-    windowReSizer();
-  });
 
-  function windowReSizer() {
-    if (window.innerWidth > 850) {
-      controls.maxDistance = 10;
-      const offset = new THREE.Vector3();
-      offset.copy(camera.position).sub(controls.target).setLength(9);
-      camera.position.copy(controls.target).add(offset);
-      controls.update();
-    } else if (window.innerWidth > 450) {
-      controls.maxDistance = 15;
-      const offset = new THREE.Vector3();
-      offset.copy(camera.position).sub(controls.target).setLength(15);
-      camera.position.copy(controls.target).add(offset);
-      controls.update();
-    } else {
-      controls.maxDistance = 20;
-      const offset = new THREE.Vector3();
-      offset.copy(camera.position).sub(controls.target).setLength(15);
-      camera.position.copy(controls.target).add(offset);
-      controls.update();
-    }
-  }
-  renderer.domElement.addEventListener(
-    "webglcontextlost",
-    function (event) {
-      event.preventDefault();
-      // alert("WebGL context lost. Please reload the page.");
-      clearScene()
-      window.location.reload();
-
-    },
-    false
-  );
+  
 
   let Hoverings = false;
 
@@ -526,63 +481,134 @@ let RightCabinDoor,LeftCabinDoor;
     stats.update();
     renderer.render(scene, camera);
   }
+  
+  
+}
 
+function Start3DPage(){
   windowReSizer();
+  document.getElementById("LoadInnerText").innerHTML=`<div><button class="btn" onclick="active()"><i class="animation"></i>Enter<i class="animation"></i></button></div>`;
+}
+window.load3D = load3D;
 
-  window.addEventListener("beforeunload", () => {
-    clearScene()
+function Unmute(object) {
+  if (audio.paused) {
+    videoBox.play()
+    object.children[0].name = "volume-high-outline";
+    audio.play().catch((error) => {
+      console.error("Playback failed:", error);
+    });
+  } else {
+    videoBox.pause()
+    object.children[0].name = "volume-mute-outline";
+    audio.pause();
+  }
+}
+function ActivateOfflines() {
+  videoBox.play();
+  audio.play().catch((error) => {
+    console.error("Playback failed:", error);
   });
+  openAnimation();
+}
 
-  function clearScene(){
-    if (renderer) {
-      renderer.dispose();
-      renderer.forceContextLoss();
-      renderer.domElement = null;
-    }
-
-    if (scene) {
-      scene.traverse((object) => {
-        if (!object.isMesh) return;
-        object.geometry.dispose();
-        if (object.material.isMaterial) {
-          cleanMaterial(object.material);
-        } else {
-          for (const material of object.material) cleanMaterial(material);
-        }
+function openAnimation() {
+  let delay1 = 0.3;
+  let delay2 = 0.2;
+  Animation1.forEach((child) => {
+    if (child.name.includes("Animation1")) {
+      gsap.to(child.scale, {
+        x: 1,
+        y: 1,
+        z: 1,
+        duration: 2,
+        ease: "bounce.out",
+        delay: (delay1 += 0.1),
+      });
+    } else if (child.name.includes("Animation2")) {
+      gsap.to(child.position, {
+        x: child.userData.MainPosition.x,
+        duration: 2,
+        ease: "power3.out",
+        delay: 0.4,
+      });
+      gsap.to(child.rotation, {
+        y: child.userData.MainRotation.y,
+        duration: 2,
+        ease: "power3.out",
+        delay: 0.4,
+      });
+    } else if (
+      child.name.includes("Hover") ||
+      child.name.includes("Animation3")
+    ) {
+      gsap.to(child.scale, {
+        x: 1,
+        y: 1,
+        z: 1,
+        duration: 2,
+        ease: "bounce.out",
+        delay: (delay2 += 0.2),
       });
     }
-  }
-
-  function cleanMaterial(material) {
-    material.dispose();
-    for (const key in material) {
-      const value = material[key];
-      if (value && typeof value === "object" && "minFilter" in value) {
-        value.dispose();
-      }
-    }
-  }
-  function Start3DPage(){
-    document.getElementById("LoadInnerText").innerHTML=`<div><button class="btn" onclick="active()"><i class="animation"></i>Enter<i class="animation"></i></button></div>`;
-  }
-  function MyProfiles(){
-    const targetPosition = new THREE.Vector3(1.308619800518191, 2.4226005234356385, -0.6493794525893896);
-    const targetControl = new THREE.Vector3(0.12197057767125419, 1.8907698972714018, -0.6493794525893897);
-    
-    gsap.to(camera.position, {
-      x: targetPosition.x,
-      y: targetPosition.y,
-      z: targetPosition.z,
-      duration: 2,
-      ease: "power2.inOut", 
-      onUpdate: () => {
-        controls.target.set(targetControl.x, targetControl.y, targetControl.z);
-        controls.update(); 
-      }
-    });
-  }
-  window.MyProfiles=MyProfiles;
+  });
+  setTimeout(()=>{
+    removeHovers()
+  },2000)
 }
 
 
-window.load3D = load3D;
+
+function openAboutMe(){
+  const iframe=document.getElementById("RepoIframe");
+  const UserBox=document.getElementById("UserMain");
+  if(UserBox.classList.contains("open")){
+    UserBox.classList.remove("open");
+    setTimeout(()=>{
+      iframe.src='';
+    },500)
+    removeHovers()
+  }else{
+    UserBox.classList.add("open");
+    iframe.src='https://mrabhin03.github.io/Repositories/';
+  }
+}
+
+function removeHovers(){
+  for (const sheet of document.styleSheets) {
+    try {
+      const rules = sheet.cssRules || sheet.rules;
+      if (!rules) continue;
+  
+      for (let i = rules.length - 1; i >= 0; i--) {
+        const rule = rules[i];
+        if (rule.selectorText && rule.selectorText.includes(':hover')) {
+          sheet.deleteRule(i);
+        }
+      }
+    } catch (e) {
+      // Some stylesheets (e.g., cross-origin) will throw errors — safely ignore them
+    }
+  }
+}
+function MyProfiles(){
+  const targetPosition = new THREE.Vector3(1.308619800518191, 2.4226005234356385, -0.6493794525893896);
+  const targetControl = new THREE.Vector3(0.12197057767125419, 1.8907698972714018, -0.6493794525893897);
+  
+  gsap.to(camera.position, {
+    x: targetPosition.x,
+    y: targetPosition.y,
+    z: targetPosition.z,
+    duration: 2,
+    ease: "power2.inOut", 
+    onUpdate: () => {
+      controls.target.set(targetControl.x, targetControl.y, targetControl.z);
+      controls.update(); 
+    }
+  });
+}
+
+window.Unmute = Unmute;
+window.ActivateOfflines = ActivateOfflines;
+window.openAboutMe=openAboutMe;
+window.MyProfiles=MyProfiles;
