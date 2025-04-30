@@ -24,7 +24,7 @@ let textureKey, links, VideoTexture, audio, videoBox;
 let RightCabinDoor, LeftCabinDoor, Blade, Hours, Mins, Secs, ChairTop, pointer;
 let SocialAlert = 0;
 let MainController = false;
-let texturesToLoad ,texturesLoaded = 0;
+let texturesToLoad=0 ,texturesLoaded = 0;
 function initializeScene() {
   const container = document.getElementById("container");
   scene = new THREE.Scene();
@@ -246,100 +246,114 @@ function load3D() {
     .setTranscoderPath("jsm/libs/basis/")
     .detectSupport(renderer);
 
-  loader.load(
-    "assets/TheRoom.glb",
-    (gltf) => {
-      const model = gltf.scene;
-      model.position.set(0, -1, 0);
-      scene.add(model);
-      texturesToLoad = model.children.length-1;
-      model.traverse((child) => {
-        if (!child.isMesh) return;
-
-        for (const [key, path] of Object.entries(textureKey)) {
-          if (child.name.includes(key)) {
-            ktx2Loader.load(path, (tex) => {
-              tex.encoding = THREE.sRGBEncoding;
-              // tex.generateMipmaps = true;
-              tex.minFilter = THREE.LinearMipmapLinearFilter;
-              tex.magFilter = THREE.LinearFilter;
-
-              child.material = new THREE.MeshBasicMaterial({ map: tex });
-              if (key === "Earth") {
-                GlobeDetails.object = child;
-                child.material = new THREE.MeshStandardMaterial({
-                  map: tex,
-                  roughness: 0.7,
-                  metalness: 0.4,
-                  color: child.material.color.clone().multiplyScalar(0.6),
-                });
-                targetObjects.push(child);
-              }
-            });
-            texturesLoaded++;
-            break;
-            
+    loader.load(
+      "assets/TheRoom.glb",
+      (gltf) => {
+        const model = gltf.scene;
+        model.position.set(0, -1, 0);
+        scene.add(model);
+        model.traverse((child) => {
+          if (!child.isMesh) return;
+          for (const key of Object.keys(textureKey)) {
+            if (child.name.includes(key)) {
+              texturesToLoad++;
+              break;
+            }
           }
-          
-        }
-
-        if (child.name.includes("Monitor")) {
-          VideoTexture.flipY = false;
-          VideoTexture.colorSpace = THREE.SRGBColorSpace;
-          child.material = new THREE.MeshBasicMaterial({ map: VideoTexture });
-        } else if (child.name.includes("Animation2")) {
-          if (child.name.includes("ChairTop")) {
-            ChairTop = child;
+        });
+    
+        model.traverse((child) => {
+          if (!child.isMesh) return;
+    
+          for (const [key, path] of Object.entries(textureKey)) {
+            if (child.name.includes(key)) {
+              ktx2Loader.load(path, (tex) => {
+                tex.encoding = THREE.sRGBEncoding;
+                tex.minFilter = THREE.LinearMipmapLinearFilter;
+                tex.magFilter = THREE.LinearFilter;
+    
+                child.material = new THREE.MeshBasicMaterial({ map: tex });
+    
+                if (key === "Earth") {
+                  GlobeDetails.object = child;
+                  child.material = new THREE.MeshStandardMaterial({
+                    map: tex,
+                    roughness: 0.7,
+                    metalness: 0.4,
+                    color: child.material.color.clone().multiplyScalar(0.6),
+                  });
+                  targetObjects.push(child);
+                }
+    
+                texturesLoaded++;
+                if (texturesLoaded === texturesToLoad) {
+                  renderer.compile(scene, camera);
+                  renderer.setAnimationLoop(animate);
+                }
+              });
+              break;
+            }
+          }
+    
+          if (child.name.includes("Monitor")) {
+            VideoTexture.flipY = false;
+            VideoTexture.colorSpace = THREE.SRGBColorSpace;
+            child.material = new THREE.MeshBasicMaterial({ map: VideoTexture });
+          } else if (child.name.includes("Animation2")) {
+            if (child.name.includes("ChairTop")) {
+              ChairTop = child;
+              targetObjects.push(child);
+            }
+            saveOriginalTransform(child);
+            child.position.x += 2;
+            child.rotation.y += 3;
+            Animation1.push(child);
+          } else if (/Interact|Hover|Animation1|Earth/.test(child.name)) {
+            saveOriginalTransform(child);
             targetObjects.push(child);
-          }
-          saveOriginalTransform(child);
-          child.position.x += 2;
-          child.rotation.y += 3;
-          Animation1.push(child);
-        } else if (/Interact|Hover|Animation1|Earth/.test(child.name)) {
-          saveOriginalTransform(child);
-          targetObjects.push(child);
-          if (
-            child.name.includes("Animation1") ||
-            child.name.includes("Hover")
+            if (
+              child.name.includes("Animation1") ||
+              child.name.includes("Hover")
+            ) {
+              Animation1.push(child);
+              child.scale.set(0, 0, 0);
+            }
+          } else if (
+            child.name.includes("Hover") ||
+            child.name.includes("Animation3")
           ) {
             Animation1.push(child);
-            child.scale.set(0, 0, 0);
+            child.scale.set(2, 2, 2);
+            if (child.name.includes("Animation3")) {
+              child.scale.set(1.2, 1.2, 1.2);
+            }
+          } else if (child.name.includes("MainCabinBox")) {
+            targetObjects.push(child);
+          } else if (child.name.includes("DoorRight")) {
+            saveOriginalTransform(child);
+            RightCabinDoor = child;
+            RightCabinDoor.MainRotation = child.rotation.clone();
+          } else if (child.name.includes("DoorLeft")) {
+            saveOriginalTransform(child);
+            LeftCabinDoor = child;
+            LeftCabinDoor.MainRotation = child.rotation.clone();
           }
-        } else if (
-          child.name.includes("Hover") ||
-          child.name.includes("Animation3")
-        ) {
-          Animation1.push(child);
-          child.scale.set(2, 2, 2);
-          if (child.name.includes("Animation3")) {
-            child.scale.set(1.2, 1.2, 1.2);
-          }
-        } else if (child.name.includes("MainCabinBox")) {
-          targetObjects.push(child);
-        } else if (child.name.includes("DoorRight")) {
-          saveOriginalTransform(child);
-          RightCabinDoor = child;
-          RightCabinDoor.MainRotation = child.rotation.clone();
-        } else if (child.name.includes("DoorLeft")) {
-          saveOriginalTransform(child);
-          LeftCabinDoor = child;
-          LeftCabinDoor.MainRotation = child.rotation.clone();
+    
+          if (child.name.includes("Blade")) Blade = child;
+          if (child.name.includes("Clock-Hours")) Hours = child;
+          if (child.name.includes("Clock-Min")) Mins = child;
+          if (child.name.includes("Clock-Sec")) Secs = child;
+        });
+    
+        if (texturesToLoad === 0) {
+          renderer.compile(scene, camera);
+          renderer.setAnimationLoop(animate);
         }
-
-        if (child.name.includes("Blade")) Blade = child;
-        if (child.name.includes("Clock-Hours")) Hours = child;
-        if (child.name.includes("Clock-Min")) Mins = child;
-        if (child.name.includes("Clock-Sec")) Secs = child;
-      });
-      setTimeout(() => {
-        renderer.compile(scene, camera);
-        renderer.setAnimationLoop(animate);
-      }, 100);
-    },
-    undefined,
-    console.error
-  );
+      },
+      undefined,
+      console.error
+    );
+    
 
   function saveOriginalTransform(obj) {
     obj.userData.MainScale = obj.scale.clone();
@@ -439,9 +453,7 @@ function load3D() {
   }
   let loadStart = false;
   function animate() {
-    if (texturesLoaded === texturesToLoad) {
-      SocialPosterAlert();
-    }
+    SocialPosterAlert();
     
     if (!loadStart) {
       if (SocialAlert > 30) {
