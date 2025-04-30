@@ -58,7 +58,7 @@ function initializeEnvironment() {
 function initializeMedia() {
   audio = document.createElement("audio");
   videoBox = Object.assign(document.createElement("video"), {
-    src: "Textures/Video.mp4",
+    src: "assets/Video.mp4",
     loop: true,
     muted: true, 
     autoplay: false,
@@ -261,8 +261,7 @@ function load3D() {
           if (child.name.includes(key)) {
             ktx2Loader.load(path, (tex) => {
               tex.encoding = THREE.sRGBEncoding;
-      
-              // Default material
+
               child.material = new THREE.MeshBasicMaterial({ map: tex });
       
               if (key === "Earth") {
