@@ -6,7 +6,6 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { KTX2Loader } from "./jsm/loaders/KTX2Loader.js";
 
-
 let renderer, camera, scene, controls, stats, pmremGenerator, envMap;
 const Sizes = { Width: window.innerWidth, Height: window.innerHeight };
 const targetObjects = [];
@@ -14,11 +13,18 @@ const Animation1 = [];
 let currentIntersects = [];
 let HoveredObject = null;
 let GlobeDetails = { object: null, speed: 0.08 };
-let ChairDetails = { Speed: 0.0015, ToRight: true, MaxTimes: 500, Time: 0, Hover: false };
+let ChairDetails = {
+  Speed: 0.0015,
+  ToRight: true,
+  MaxTimes: 500,
+  Time: 0,
+  Hover: false,
+};
 let textureKey, links, VideoTexture, audio, videoBox;
-let RightCabinDoor, LeftCabinDoor, Blade, Hours, Mins, Secs, ChairTop,pointer;
+let RightCabinDoor, LeftCabinDoor, Blade, Hours, Mins, Secs, ChairTop, pointer;
 let SocialAlert = 0;
-let MainController=false;
+let MainController = false;
+let texturesToLoad ,texturesLoaded = 0;
 function initializeScene() {
   const container = document.getElementById("container");
   scene = new THREE.Scene();
@@ -26,7 +32,12 @@ function initializeScene() {
   container.appendChild(renderer.domElement);
 }
 function initializeCamera() {
-  camera = new THREE.PerspectiveCamera(45, Sizes.Width / Sizes.Height, 0.1, 100);
+  camera = new THREE.PerspectiveCamera(
+    45,
+    Sizes.Width / Sizes.Height,
+    0.1,
+    100
+  );
   camera.position.set(5.6, 4, 5.6);
 }
 function initializeRenderer() {
@@ -62,7 +73,7 @@ function initializeMedia() {
   videoBox = Object.assign(document.createElement("video"), {
     src: "assets/Video.mp4",
     loop: true,
-    muted: true, 
+    muted: true,
     autoplay: false,
     playsInline: true,
   });
@@ -85,7 +96,6 @@ function initializeLoaders() {
   };
 }
 
-
 function initializeEventListeners() {
   ["mousemove", "touchstart"].forEach((evt) =>
     window.addEventListener(evt, handlePointerMove, { passive: false })
@@ -95,7 +105,11 @@ function initializeEventListeners() {
     window.addEventListener(evt, handlePointerClick, { passive: false })
   );
 
-  renderer.domElement.addEventListener("webglcontextlost", handleContextLost, false);
+  renderer.domElement.addEventListener(
+    "webglcontextlost",
+    handleContextLost,
+    false
+  );
 }
 function handlePointerMove(e) {
   const x = e.type === "touchstart" ? e.touches[0].clientX : e.clientX;
@@ -171,7 +185,6 @@ function cleanMaterial(material) {
   }
 }
 
-
 function windowReSizer() {
   if (window.innerWidth > 850) {
     controls.maxDistance = 10;
@@ -194,7 +207,6 @@ function windowReSizer() {
   }
 }
 
-
 function load3D() {
   initializeCamera();
   initializeRenderer();
@@ -210,6 +222,8 @@ function load3D() {
   window.addEventListener("resize", handleResize);
   window.addEventListener("beforeunload", clearScene);
 
+  
+
   const manager = new THREE.LoadingManager();
   // manager.onStart = (url, itemsLoaded, itemsTotal) => console.log(`Started loading: ${url} (${itemsLoaded}/${itemsTotal})`);
   manager.onLoad = () => {
@@ -217,25 +231,20 @@ function load3D() {
     audio.src = "assets/Background_Music.mp3";
     audio.loop = true;
   };
-  
+
   // manager.onProgress = (url, itemsLoaded, itemsTotal) => console.log(`Loading: ${url} (${itemsLoaded}/${itemsTotal})`);
   // manager.onError = (url) => console.log(`Error loading ${url}`);
-  const textureLoader = new THREE.TextureLoader(manager);
-  
-
-
-
-
+  const tex = new THREE.TextureLoader(manager);
 
   const dracoLoader = new DRACOLoader().setDecoderPath("jsm/libs/draco/gltf/");
   const loader = new GLTFLoader(manager).setDRACOLoader(dracoLoader);
 
   const raycaster = new THREE.Raycaster();
   const stats = new Stats();
- 
+
   const ktx2Loader = new KTX2Loader()
-  .setTranscoderPath("jsm/libs/basis/") 
-  .detectSupport(renderer);
+    .setTranscoderPath("jsm/libs/basis/")
+    .detectSupport(renderer);
 
   loader.load(
     "assets/TheRoom.glb",
@@ -243,7 +252,7 @@ function load3D() {
       const model = gltf.scene;
       model.position.set(0, -1, 0);
       scene.add(model);
-
+      texturesToLoad = model.children.length-1;
       model.traverse((child) => {
         if (!child.isMesh) return;
 
@@ -251,10 +260,10 @@ function load3D() {
           if (child.name.includes(key)) {
             ktx2Loader.load(path, (tex) => {
               tex.encoding = THREE.sRGBEncoding;
-              // tex.generateMipmaps = true;  
-              tex.minFilter = THREE.LinearMipmapLinearFilter; 
-              tex.magFilter = THREE.LinearFilter; 
-      
+              // tex.generateMipmaps = true;
+              tex.minFilter = THREE.LinearMipmapLinearFilter;
+              tex.magFilter = THREE.LinearFilter;
+
               child.material = new THREE.MeshBasicMaterial({ map: tex });
               if (key === "Earth") {
                 GlobeDetails.object = child;
@@ -267,16 +276,18 @@ function load3D() {
                 targetObjects.push(child);
               }
             });
+            texturesLoaded++;
             break;
+            
           }
+          
         }
-
 
         if (child.name.includes("Monitor")) {
           VideoTexture.flipY = false;
           VideoTexture.colorSpace = THREE.SRGBColorSpace;
           child.material = new THREE.MeshBasicMaterial({ map: VideoTexture });
-        }else if (child.name.includes("Animation2")) {
+        } else if (child.name.includes("Animation2")) {
           if (child.name.includes("ChairTop")) {
             ChairTop = child;
             targetObjects.push(child);
@@ -285,29 +296,35 @@ function load3D() {
           child.position.x += 2;
           child.rotation.y += 3;
           Animation1.push(child);
-        }else if (/Interact|Hover|Animation1|Earth/.test(child.name)) {
+        } else if (/Interact|Hover|Animation1|Earth/.test(child.name)) {
           saveOriginalTransform(child);
           targetObjects.push(child);
-          if (child.name.includes("Animation1") || child.name.includes("Hover")) {
+          if (
+            child.name.includes("Animation1") ||
+            child.name.includes("Hover")
+          ) {
             Animation1.push(child);
             child.scale.set(0, 0, 0);
           }
-        }else if (child.name.includes("Hover") || child.name.includes("Animation3")) {
+        } else if (
+          child.name.includes("Hover") ||
+          child.name.includes("Animation3")
+        ) {
           Animation1.push(child);
           child.scale.set(2, 2, 2);
           if (child.name.includes("Animation3")) {
             child.scale.set(1.2, 1.2, 1.2);
           }
-        }else if(child.name.includes("MainCabinBox")){
+        } else if (child.name.includes("MainCabinBox")) {
           targetObjects.push(child);
-        }else if(child.name.includes("DoorRight")){
+        } else if (child.name.includes("DoorRight")) {
           saveOriginalTransform(child);
-          RightCabinDoor=child;
-          RightCabinDoor.MainRotation= child.rotation.clone()
-        }else if(child.name.includes("DoorLeft")){
+          RightCabinDoor = child;
+          RightCabinDoor.MainRotation = child.rotation.clone();
+        } else if (child.name.includes("DoorLeft")) {
           saveOriginalTransform(child);
-          LeftCabinDoor=child;
-          LeftCabinDoor.MainRotation= child.rotation.clone()
+          LeftCabinDoor = child;
+          LeftCabinDoor.MainRotation = child.rotation.clone();
         }
 
         if (child.name.includes("Blade")) Blade = child;
@@ -330,26 +347,25 @@ function load3D() {
     obj.userData.MainPosition = obj.position.clone();
   }
 
-  
-
-
-  
-
   let Hoverings = false;
 
   function playHoverAnimation(obj, isPlaying) {
-    if(obj.name.includes("MainCabinBox")){
-      gsap.to(LeftCabinDoor.rotation,{
-        y:isPlaying? LeftCabinDoor.MainRotation.y-2:LeftCabinDoor.MainRotation.y,
-        duration:1,
+    if (obj.name.includes("MainCabinBox")) {
+      gsap.to(LeftCabinDoor.rotation, {
+        y: isPlaying
+          ? LeftCabinDoor.MainRotation.y - 2
+          : LeftCabinDoor.MainRotation.y,
+        duration: 1,
         ease: "power1.inOut",
-      })
-      gsap.to(RightCabinDoor.rotation,{
-        y:isPlaying? RightCabinDoor.MainRotation.y+2:RightCabinDoor.MainRotation.y,
-        duration:1,
+      });
+      gsap.to(RightCabinDoor.rotation, {
+        y: isPlaying
+          ? RightCabinDoor.MainRotation.y + 2
+          : RightCabinDoor.MainRotation.y,
+        duration: 1,
         ease: "power1.inOut",
-      })
-      return
+      });
+      return;
     }
     if (obj.name.includes("ChairTop")) {
       ChairDetails.Hover = isPlaying;
@@ -395,7 +411,7 @@ function load3D() {
     Mins.rotation.x = -mapValue(now.getMinutes() + 1);
     Secs.rotation.x = -mapValue(now.getSeconds() + 1);
   }
-  
+
   function SocialPosterAlert() {
     SocialAlert++;
     if (!Hoverings) {
@@ -421,80 +437,86 @@ function load3D() {
       SocialAlert = 50;
     }
   }
-  let loadStart=false;
+  let loadStart = false;
   function animate() {
-    if(!loadStart){
-      if(SocialAlert>30){
+    if (texturesLoaded === texturesToLoad) {
+      SocialPosterAlert();
+    }
+    
+    if (!loadStart) {
+      if (SocialAlert > 30) {
         Start3DPage();
-        loadStart=true
+        loadStart = true;
       }
-    }
-    SocialPosterAlert();
-    if(MainController){
-      raycaster.setFromCamera(pointer, camera);
-      currentIntersects = raycaster.intersectObjects(targetObjects);
-      if (currentIntersects.length > 0) {
-        const selected = currentIntersects[0].object;
-        if (
-          ["Hover", "ChairTop", "Animation1", "Earth","MainCabinBox"].some((k) =>
-            selected.name.includes(k)
-          )
-        ) {
-          if (HoveredObject !== selected) {
-            if (HoveredObject) playHoverAnimation(HoveredObject, false);
-            playHoverAnimation(selected, true);
-            HoveredObject = selected;
+    } else {
+      
+      if (MainController) {
+        raycaster.setFromCamera(pointer, camera);
+        currentIntersects = raycaster.intersectObjects(targetObjects);
+        if (currentIntersects.length > 0) {
+          const selected = currentIntersects[0].object;
+          if (
+            ["Hover", "ChairTop", "Animation1", "Earth", "MainCabinBox"].some(
+              (k) => selected.name.includes(k)
+            )
+          ) {
+            if (HoveredObject !== selected) {
+              if (HoveredObject) playHoverAnimation(HoveredObject, false);
+              playHoverAnimation(selected, true);
+              HoveredObject = selected;
+            }
           }
+          document.body.style.cursor = selected.name.includes("Interact")
+            ? "pointer"
+            : "default";
+        } else {
+          if (HoveredObject) playHoverAnimation(HoveredObject, false);
+          HoveredObject = null;
+          document.body.style.cursor = "default";
         }
-        document.body.style.cursor = selected.name.includes("Interact")
-          ? "pointer"
-          : "default";
-      } else {
-        if (HoveredObject) playHoverAnimation(HoveredObject, false);
-        HoveredObject = null;
-        document.body.style.cursor = "default";
       }
+      clockTime();
+      controls.update();
+      if (GlobeDetails.object)
+        GlobeDetails.object.rotateOnAxis(
+          new THREE.Vector3(0, 1, 0),
+          GlobeDetails.speed
+        );
+      if (!ChairDetails.Hover && ChairTop) {
+        ChairTop.rotation.y += ChairDetails.ToRight
+          ? -ChairDetails.Speed
+          : ChairDetails.Speed;
+        ChairDetails.Time += ChairDetails.ToRight ? 1 : -1;
+        if (
+          ChairDetails.Time === 0 ||
+          ChairDetails.Time === ChairDetails.MaxTimes
+        )
+          ChairDetails.ToRight = !ChairDetails.ToRight;
+      }
+      if (Blade) Blade.rotation.x -= 0.08;
     }
-    clockTime();
-    controls.update();
-    if (GlobeDetails.object)
-      GlobeDetails.object.rotateOnAxis(
-        new THREE.Vector3(0, 1, 0),
-        GlobeDetails.speed
-      );
-    if (!ChairDetails.Hover && ChairTop) {
-      ChairTop.rotation.y += ChairDetails.ToRight
-        ? -ChairDetails.Speed
-        : ChairDetails.Speed;
-      ChairDetails.Time += ChairDetails.ToRight ? 1 : -1;
-      if (
-        ChairDetails.Time === 0 ||
-        ChairDetails.Time === ChairDetails.MaxTimes
-      )
-        ChairDetails.ToRight = !ChairDetails.ToRight;
-    }
-    if (Blade) Blade.rotation.x -= 0.08;
-
     stats.update();
     renderer.render(scene, camera);
-  } 
+  }
 }
 
-function Start3DPage(){
+function Start3DPage() {
   windowReSizer();
-  document.getElementById("LoadInnerText").innerHTML=`<div><button class="btn" onclick="active()"><i class="animation"></i>Enter<i class="animation"></i></button></div>`;
+  document.getElementById(
+    "LoadInnerText"
+  ).innerHTML = `<div><button class="btn" onclick="active()"><i class="animation"></i>Enter<i class="animation"></i></button></div>`;
 }
 window.load3D = load3D;
 
 function Unmute(object) {
   if (audio.paused) {
-    videoBox.play()
+    videoBox.play();
     object.children[0].name = "volume-high-outline";
     audio.play().catch((error) => {
       console.error("Playback failed:", error);
     });
   } else {
-    videoBox.pause()
+    videoBox.pause();
     object.children[0].name = "volume-mute-outline";
     audio.pause();
   }
@@ -548,37 +570,35 @@ function openAnimation() {
     }
   });
   setTimeout(() => {
-    removeHovers()
-    MainController=true
-  },3000)
+    removeHovers();
+    MainController = true;
+  }, 3000);
 }
 
-
-
-function openAboutMe(){
-  const iframe=document.getElementById("RepoIframe");
-  const UserBox=document.getElementById("UserMain");
-  if(UserBox.classList.contains("open")){
+function openAboutMe() {
+  const iframe = document.getElementById("RepoIframe");
+  const UserBox = document.getElementById("UserMain");
+  if (UserBox.classList.contains("open")) {
     UserBox.classList.remove("open");
-    setTimeout(()=>{
-      iframe.src='';
-    },500)
-    removeHovers()
-  }else{
+    setTimeout(() => {
+      iframe.src = "";
+    }, 500);
+    removeHovers();
+  } else {
     UserBox.classList.add("open");
-    iframe.src='GitRepo/index.html';
+    iframe.src = "GitRepo/index.html";
   }
 }
 
-function removeHovers(){
+function removeHovers() {
   for (const sheet of document.styleSheets) {
     try {
       const rules = sheet.cssRules || sheet.rules;
       if (!rules) continue;
-  
+
       for (let i = rules.length - 1; i >= 0; i--) {
         const rule = rules[i];
-        if (rule.selectorText && rule.selectorText.includes(':hover')) {
+        if (rule.selectorText && rule.selectorText.includes(":hover")) {
           sheet.deleteRule(i);
         }
       }
@@ -588,8 +608,16 @@ function removeHovers(){
   }
 }
 function MyProfiles() {
-  const targetPosition = new THREE.Vector3(1.308619800518191, 2.4226005234356385, -0.6493794525893896);
-  const targetControl = new THREE.Vector3(0.12197057767125419, 1.8907698972714018, -0.6493794525893897);
+  const targetPosition = new THREE.Vector3(
+    1.308619800518191,
+    2.4226005234356385,
+    -0.6493794525893896
+  );
+  const targetControl = new THREE.Vector3(
+    0.12197057767125419,
+    1.8907698972714018,
+    -0.6493794525893897
+  );
 
   // Animate camera position
   gsap.to(camera.position, {
@@ -597,7 +625,7 @@ function MyProfiles() {
     y: targetPosition.y,
     z: targetPosition.z,
     duration: 2,
-    ease: "power2.inOut"
+    ease: "power2.inOut",
   });
 
   gsap.to(controls.target, {
@@ -608,14 +636,13 @@ function MyProfiles() {
     ease: "power2.inOut",
     onUpdate: () => {
       controls.update();
-    }
+    },
   });
 
   SocialAlert = 950;
 }
 
-
 window.Unmute = Unmute;
 window.ActivateOfflines = ActivateOfflines;
-window.openAboutMe=openAboutMe;
-window.MyProfiles=MyProfiles;
+window.openAboutMe = openAboutMe;
+window.MyProfiles = MyProfiles;
