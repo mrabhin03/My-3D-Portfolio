@@ -65,18 +65,6 @@ function initializeMedia() {
     playsInline: true,
   });
 
-  // videoBox.play().catch((error) => {
-  //   console.warn("Autoplay failed. Waiting for user interaction.");
-  // });
-
-  // document.addEventListener("click", () => {
-  //   if (videoBox.paused) {
-  //     videoBox.play().catch((error) => {
-  //       console.error("Playback failed:", error);
-  //     });
-  //   }
-  // });
-
   VideoTexture = new THREE.VideoTexture(videoBox);
 }
 function initializeLoaders() {
