@@ -455,7 +455,6 @@ function load3D() {
         document.body.style.cursor = "default";
       }
     }
-
     clockTime();
     controls.update();
     if (GlobeDetails.object)
@@ -478,9 +477,7 @@ function load3D() {
 
     stats.update();
     renderer.render(scene, camera);
-  }
-  
-  
+  } 
 }
 
 function Start3DPage(){
@@ -550,14 +547,6 @@ function openAnimation() {
       });
     }
   });
-  // gsap.to(camera.position, {
-  //   x: camera.position.x+1,
-  //   y: camera.position.y+1,
-  //   z: camera.position.z+1,
-  //   duration: 2,
-  //   ease: "bounce.out",
-  //   delay: (delay2 += 0.2),
-  // });
   setTimeout(() => {
     removeHovers()
     MainController=true
