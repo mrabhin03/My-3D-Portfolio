@@ -14,9 +14,11 @@ const Animation1 = [];
 let currentIntersects = [];
 let HoveredObject = null;
 let GlobeDetails = { object: null, speed: 0.08 };
-let ChairDetails = { Speed: 0.002, ToRight: true, MaxTimes: 500, Time: 0, Hover: false };
+let ChairDetails = { Speed: 0.0015, ToRight: true, MaxTimes: 500, Time: 0, Hover: false };
 let textureKey, links, VideoTexture, audio, videoBox;
 let RightCabinDoor, LeftCabinDoor, Blade, Hours, Mins, Secs, ChairTop,pointer;
+let SocialAlert = 0;
+let MainController=false;
 function initializeScene() {
   const container = document.getElementById("container");
   scene = new THREE.Scene();
@@ -281,7 +283,7 @@ function load3D() {
           }
           saveOriginalTransform(child);
           child.position.x += 2;
-          child.rotation.y -= 3;
+          child.rotation.y += 3;
           Animation1.push(child);
         }else if (/Interact|Hover|Animation1|Earth/.test(child.name)) {
           saveOriginalTransform(child);
@@ -393,7 +395,7 @@ function load3D() {
     Mins.rotation.x = -mapValue(now.getMinutes() + 1);
     Secs.rotation.x = -mapValue(now.getSeconds() + 1);
   }
-  let SocialAlert = 0;
+  
   function SocialPosterAlert() {
     SocialAlert++;
     if (!Hoverings) {
@@ -428,29 +430,30 @@ function load3D() {
       }
     }
     SocialPosterAlert();
-    raycaster.setFromCamera(pointer, camera);
-    currentIntersects = raycaster.intersectObjects(targetObjects);
-
-    if (currentIntersects.length > 0) {
-      const selected = currentIntersects[0].object;
-      if (
-        ["Hover", "ChairTop", "Animation1", "Earth","MainCabinBox"].some((k) =>
-          selected.name.includes(k)
-        )
-      ) {
-        if (HoveredObject !== selected) {
-          if (HoveredObject) playHoverAnimation(HoveredObject, false);
-          playHoverAnimation(selected, true);
-          HoveredObject = selected;
+    if(MainController){
+      raycaster.setFromCamera(pointer, camera);
+      currentIntersects = raycaster.intersectObjects(targetObjects);
+      if (currentIntersects.length > 0) {
+        const selected = currentIntersects[0].object;
+        if (
+          ["Hover", "ChairTop", "Animation1", "Earth","MainCabinBox"].some((k) =>
+            selected.name.includes(k)
+          )
+        ) {
+          if (HoveredObject !== selected) {
+            if (HoveredObject) playHoverAnimation(HoveredObject, false);
+            playHoverAnimation(selected, true);
+            HoveredObject = selected;
+          }
         }
+        document.body.style.cursor = selected.name.includes("Interact")
+          ? "pointer"
+          : "default";
+      } else {
+        if (HoveredObject) playHoverAnimation(HoveredObject, false);
+        HoveredObject = null;
+        document.body.style.cursor = "default";
       }
-      document.body.style.cursor = selected.name.includes("Interact")
-        ? "pointer"
-        : "default";
-    } else {
-      if (HoveredObject) playHoverAnimation(HoveredObject, false);
-      HoveredObject = null;
-      document.body.style.cursor = "default";
     }
 
     clockTime();
@@ -547,9 +550,10 @@ function openAnimation() {
       });
     }
   });
-  setTimeout(()=>{
+  setTimeout(() => {
     removeHovers()
-  },2000)
+    MainController=true
+  },3000)
 }
 
 
@@ -586,22 +590,33 @@ function removeHovers(){
     }
   }
 }
-function MyProfiles(){
+function MyProfiles() {
   const targetPosition = new THREE.Vector3(1.308619800518191, 2.4226005234356385, -0.6493794525893896);
   const targetControl = new THREE.Vector3(0.12197057767125419, 1.8907698972714018, -0.6493794525893897);
-  
+
+  // Animate camera position
   gsap.to(camera.position, {
     x: targetPosition.x,
     y: targetPosition.y,
     z: targetPosition.z,
     duration: 2,
-    ease: "power2.inOut", 
+    ease: "power2.inOut"
+  });
+
+  gsap.to(controls.target, {
+    x: targetControl.x,
+    y: targetControl.y,
+    z: targetControl.z,
+    duration: 2,
+    ease: "power2.inOut",
     onUpdate: () => {
-      controls.target.set(targetControl.x, targetControl.y, targetControl.z);
-      controls.update(); 
+      controls.update();
     }
   });
+
+  SocialAlert = 950;
 }
+
 
 window.Unmute = Unmute;
 window.ActivateOfflines = ActivateOfflines;

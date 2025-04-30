@@ -13,6 +13,10 @@ html {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+.disable-hover *:hover {
+  pointer-events: none !important;
+}
+
 canvas {
   pointer-events: auto;
   display: block;
@@ -165,7 +169,7 @@ p {
 }
 
 .btn {
-  pointer-events: all;
+  pointer-events: all !important;
   font-family: "Concert One", sans-serif;
   outline: 0;
   display: inline-flex;
