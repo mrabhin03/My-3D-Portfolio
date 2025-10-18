@@ -588,17 +588,12 @@ function openAnimation() {
 }
 
 function openAboutMe() {
-  const iframe = document.getElementById("RepoIframe");
   const UserBox = document.getElementById("UserMain");
   if (UserBox.classList.contains("open")) {
     UserBox.classList.remove("open");
-    setTimeout(() => {
-      iframe.src = "";
-    }, 500);
     removeHovers();
   } else {
     UserBox.classList.add("open");
-    iframe.src = "GitRepo/index.html";
   }
 }
 
