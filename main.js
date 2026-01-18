@@ -656,6 +656,13 @@ function MyProfiles() {
     duration: 2,
     ease: "power2.inOut",
   });
+  gsap.to(camera, {
+    zoom: 3,
+    duration: 2,
+    ease: "power2.inOut",
+    onUpdate: () => camera.updateProjectionMatrix()
+  });
+
 
   gsap.to(controls.target, {
     x: targetControl.x,
