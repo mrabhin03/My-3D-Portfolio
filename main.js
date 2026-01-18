@@ -32,12 +32,26 @@ function initializeScene() {
   container.appendChild(renderer.domElement);
 }
 function initializeCamera() {
-  camera = new THREE.PerspectiveCamera(
-    45,
-    Sizes.Width / Sizes.Height,
-    0.1,
-    100
-  );
+
+  const frustumSize = 7
+  const aspect = window.innerWidth / window.innerHeight
+    camera = new THREE.OrthographicCamera(
+    (frustumSize * aspect) / -2,
+    (frustumSize * aspect) /  2,
+    frustumSize /  2,
+    frustumSize / -2,
+    -1000,
+    1000
+  )
+  camera.zoom = 1.2;
+
+
+  // camera = new THREE.PerspectiveCamera(
+  //   45,
+  //   Sizes.Width / Sizes.Height,
+  //   0.1,
+  //   100
+  // );
   camera.position.set(5.6, 4, 5.6);
 }
 function initializeRenderer() {
@@ -49,14 +63,16 @@ function initializeRenderer() {
 }
 function initializeControls() {
   controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0.3, 0.5, 0.3);
+  controls.target.set(0.3, 1, 0.3);
   controls.enableDamping = true;
   controls.minPolarAngle = 0;
-  controls.maxPolarAngle = Math.PI / 2;
-  controls.minAzimuthAngle = -Math.PI / 35;
-  controls.maxAzimuthAngle = Math.PI / 2;
+  controls.maxPolarAngle = (Math.PI / 2)-0.1;
+  controls.minAzimuthAngle = (-Math.PI / 35)+0.2;
+  controls.maxAzimuthAngle = (Math.PI / 2);
   controls.minDistance = 0;
   controls.maxDistance = 20;
+  controls.minZoom = 1;
+  controls.maxZoom = 3;
   controls.zoomSpeed = 2;
   controls.update();
 }
@@ -186,26 +202,32 @@ function cleanMaterial(material) {
 }
 
 function windowReSizer() {
-  if (window.innerWidth > 850) {
-    controls.maxDistance = 10;
-    const offset = new THREE.Vector3();
-    offset.copy(camera.position).sub(controls.target).setLength(9);
-    camera.position.copy(controls.target).add(offset);
-    controls.update();
-  } else if (window.innerWidth > 450) {
-    controls.maxDistance = 15;
-    const offset = new THREE.Vector3();
-    offset.copy(camera.position).sub(controls.target).setLength(15);
-    camera.position.copy(controls.target).add(offset);
-    controls.update();
+  Sizes.Width = window.innerWidth;
+  Sizes.Height = window.innerHeight;
+
+  const aspect = Sizes.Width / Sizes.Height;
+
+  if (camera.isOrthographicCamera) {
+    const frustumSize = getFrustumSize();
+
+    camera.left   = (-frustumSize * aspect) / 2;
+    camera.right  = ( frustumSize * aspect) / 2;
+    camera.top    = frustumSize / 2;
+    camera.bottom = -frustumSize / 2;
   } else {
-    controls.maxDistance = 20;
-    const offset = new THREE.Vector3();
-    offset.copy(camera.position).sub(controls.target).setLength(15);
-    camera.position.copy(controls.target).add(offset);
-    controls.update();
+    camera.aspect = aspect;
   }
+
+  camera.updateProjectionMatrix();
+  renderer.setSize(Sizes.Width, Sizes.Height);
 }
+function getFrustumSize() {
+  if (window.innerWidth > 1200) return 7;
+  if (window.innerWidth > 768) return 8.5;
+  if (window.innerWidth > 450) return 10;
+  return 15; // mobile
+}
+
 
 function load3D() {
   initializeCamera();
